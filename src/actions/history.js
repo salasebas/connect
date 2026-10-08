@@ -40,7 +40,6 @@ export function applyLocation(pathname) {
   return (dispatch, getState) => {
     const view = parsePath(pathname);
 
-    // No device in the path: keep the selected one and clear the open drive.
     if (!view.dongleId) {
       dispatch(applyView({ name: Page.device, dongleId: getState().dongleId }));
       return;

@@ -47,8 +47,6 @@ export function parsePath(pathname) {
   return view(Page.device, { dongleId });
 }
 
-// A zoom that starts at 0 is omitted. That is the URL already published for
-// "from the beginning of the drive".
 export function pathFor({ name, dongleId, routeId, zoom } = {}) {
   if (name === Page.referrals) return `/${Page.referrals}`;
   if (!dongleId || name === Page.home) return '/';

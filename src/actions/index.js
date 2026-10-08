@@ -143,7 +143,6 @@ export function checkLastRoutesData() {
   };
 }
 
-// start and end are seconds. 0 is omitted, same as pathFor.
 export function urlForState(dongleId, log_id, start, end, prime) {
   if (log_id) {
     return pathFor({
