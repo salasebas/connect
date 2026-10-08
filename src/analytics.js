@@ -4,17 +4,17 @@ import * as Sentry from '@sentry/react';
 import MyCommaAuth from '@commaai/my-comma-auth';
 
 import * as Types from './actions/types';
-import { parsePath } from './url';
+import { Page, parsePath } from './url';
 import { deviceIsOnline } from './utils';
 
 function getPageViewEventLocation(pathname) {
   const view = parsePath(pathname);
-  if (view.name === 'drive') {
+  if (view.name === Page.drive) {
     return view.zoom ? '/<dongleId>/<routeId>/<zoomStart>/<zoomEnd>' : '/<dongleId>/<routeId>';
   }
-  if (view.name === 'legacy') return '/<dongleId>/<zoomStart>/<zoomEnd>';
+  if (view.name === Page.legacy) return '/<dongleId>/<zoomStart>/<zoomEnd>';
   if (view.dongleId) {
-    return view.name === 'device' ? '/<dongleId>' : `/<dongleId>/${view.name}`;
+    return view.name === Page.device ? '/<dongleId>' : `/<dongleId>/${view.name}`;
   }
   return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 }

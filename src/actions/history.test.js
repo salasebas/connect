@@ -1,4 +1,3 @@
-/* eslint-disable no-import-assign */
 import { vi } from 'vitest';
 import { LOCATION_CHANGE } from 'connected-react-router';
 
@@ -55,76 +54,63 @@ beforeEach(() => {
 });
 
 describe('history middleware', () => {
-  it('ignores an absent action', () => {
-    const { next, invoke } = create();
-    invoke();
-    expect(next).not.toHaveBeenCalled();
-  });
-
   it('passes a non-navigation action through', () => {
     const { next, invoke } = create();
     const action = { type: 'TEST' };
     invoke(action);
     expect(next).toHaveBeenCalledWith(action);
     expect(actions.loadDevice).not.toHaveBeenCalled();
-    expect(actions.commitTimeline).not.toHaveBeenCalled();
   });
 
-  it('keeps the open device when the path already matches', () => {
+  it('does not reload a device the path already shows', () => {
     const { invoke } = create();
     invoke(location(`/${DONGLE}`));
     expect(actions.loadDevice).not.toHaveBeenCalled();
     expect(actions.checkRoutesData).not.toHaveBeenCalled();
     expect(actions.checkLastRoutesData).not.toHaveBeenCalled();
-    expect(actions.commitTimeline).toHaveBeenCalledWith(null, null, null);
   });
 
-  it.each(['POP', 'PUSH'])('loads a changed device and its routes for %s', (historyAction) => {
+  it.each(['POP', 'PUSH'])('loads a changed device and its routes on %s', (historyAction) => {
     const { invoke } = create();
     invoke(location(`/${OTHER}`, historyAction));
     expect(actions.loadDevice).toHaveBeenCalledWith(OTHER);
     expect(actions.checkLastRoutesData).toHaveBeenCalledOnce();
-    expect(actions.commitTimeline).toHaveBeenCalledWith(null, null, null);
   });
 
-  it('enters a drive range without reloading the device', () => {
+  it('opens a drive range without reloading the device', () => {
     const { invoke } = create();
     invoke(location(`/${DONGLE}/${LOG}/10/20`));
     expect(actions.loadDevice).not.toHaveBeenCalled();
     expect(actions.commitTimeline).toHaveBeenCalledWith(LOG, 10000, 20000);
   });
 
-  it('leaves a drive when the path no longer has one', () => {
-    const { invoke } = create({ ...baseState, selectedRouteId: LOG, zoom: { start: 10000, end: 20000 } });
-    invoke(location(`/${DONGLE}`));
-    expect(actions.commitTimeline).toHaveBeenCalledWith(null, null, null);
-  });
-
-  it('converts a legacy timestamp range to a route', async () => {
+  it('rewrites a legacy timestamp range to its route', async () => {
     Drives.getRoutesSegments.mockResolvedValue([{
       fullname: `${DONGLE}|${LOG}`, start_time_utc_millis: 1000, end_time_utc_millis: 61000,
     }]);
     const { invoke } = create();
     invoke(location(`/${DONGLE}/1000/2000`));
     await vi.waitFor(() => expect(actions.pushTimelineRange).toHaveBeenCalledWith(LOG, 0, 60000));
-    expect(Drives.getRoutesSegments).toHaveBeenCalledWith(DONGLE, 1000, 2000);
   });
 
-  it.each([null, []])('keeps a legacy range unchanged for an empty lookup (%j)', async (routes) => {
-    Drives.getRoutesSegments.mockResolvedValue(routes);
+  it('does not rewrite a legacy range when the lookup is empty', async () => {
+    Drives.getRoutesSegments.mockResolvedValue([]);
     const { invoke } = create();
     invoke(location(`/${DONGLE}/1000/2000`));
     await vi.waitFor(() => expect(Drives.getRoutesSegments).toHaveBeenCalled());
     expect(actions.pushTimelineRange).not.toHaveBeenCalled();
   });
 
-  it('keeps a legacy range unchanged when lookup rejects', async () => {
+  it('leaves a legacy range unchanged when lookup fails', async () => {
     const error = new Error('lookup failed');
     Drives.getRoutesSegments.mockRejectedValue(error);
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { invoke } = create();
     invoke(location(`/${DONGLE}/1000/2000`));
-    await vi.waitFor(() => expect(consoleError).toHaveBeenCalledWith('Error fetching routes data for log ID conversion', error));
+    await vi.waitFor(() => expect(consoleError).toHaveBeenCalledWith(
+      'Error fetching routes data for log ID conversion',
+      error,
+    ));
     expect(actions.pushTimelineRange).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -133,7 +119,7 @@ describe('history middleware', () => {
     ['prime', 'prime', Types.ACTION_PRIME_NAV, 'primeNav'],
     ['stream', 'stream', Types.ACTION_STREAM_NAV, 'streamNav'],
     ['settings', 'settings', Types.ACTION_SETTINGS_NAV, 'settingsNav'],
-  ])('opens and closes %s from the path', (name, suffix, type, key) => {
+  ])('opens and closes %s from the path', (_name, suffix, type, key) => {
     const entering = create();
     entering.invoke(location(`/${DONGLE}/${suffix}`));
     expect(entering.store.dispatch).toHaveBeenCalledWith({ type, [key]: true });

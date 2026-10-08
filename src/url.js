@@ -1,66 +1,61 @@
 const DONGLE = /^[a-f0-9]{16}$/;
 const ROUTE = /^[a-f0-9-]{20}$/;
+const SEC = 1000;
 
-// One grammar for the whole app:
-//   /
-//   /referrals
-//   /{dongle}
-//   /{dongle}/prime | stream | settings
-//   /{dongle}/{route}
-//   /{dongle}/{route}/{startSec}/{endSec}
-//   /{dongle}/{startMs}/{endMs}    legacy; rewritten to a drive URL
-//
-// A new page is a new name here and in pathFor. Nothing else parses paths.
+export const Page = {
+  home: 'home',
+  referrals: 'referrals',
+  device: 'device',
+  prime: 'prime',
+  stream: 'stream',
+  settings: 'settings',
+  drive: 'drive',
+  legacy: 'legacy',
+};
+
+const SEGMENT_PAGE = new Set([Page.prime, Page.stream, Page.settings]);
+
+function view(name, extra) {
+  return { name, dongleId: null, routeId: null, zoom: null, ...extra };
+}
+
 export function parsePath(pathname) {
   const [first, second, third, fourth] = pathname.split('/').filter(Boolean);
 
-  if (first === 'referrals') {
-    return { name: 'referrals', dongleId: null, routeId: null, zoom: null };
-  }
-  if (!first || !DONGLE.test(first)) {
-    return { name: 'home', dongleId: null, routeId: null, zoom: null };
-  }
+  if (first === Page.referrals) return view(Page.referrals);
+  if (!first || !DONGLE.test(first)) return view(Page.home);
 
   const dongleId = first;
-  if (!second) return { name: 'device', dongleId, routeId: null, zoom: null };
-  if (!third && (second === 'prime' || second === 'stream' || second === 'settings')) {
-    return { name: second, dongleId, routeId: null, zoom: null };
-  }
+  if (!second) return view(Page.device, { dongleId });
+  if (!third && SEGMENT_PAGE.has(second)) return view(second, { dongleId });
 
   if (ROUTE.test(second)) {
     const start = Number(third);
     const end = Number(fourth);
     const zoom = third != null && fourth != null && Number.isFinite(start) && Number.isFinite(end)
-      ? { start: start * 1000, end: end * 1000 }
+      ? { start: start * SEC, end: end * SEC }
       : null;
-    return { name: 'drive', dongleId, routeId: second, zoom };
+    return view(Page.drive, { dongleId, routeId: second, zoom });
   }
 
   const legacyStart = Number(second);
   const legacyEnd = Number(third);
   if (third != null && fourth == null && Number.isFinite(legacyStart) && Number.isFinite(legacyEnd)) {
-    return {
-      name: 'legacy',
-      dongleId,
-      routeId: null,
-      zoom: null,
-      legacy: { start: legacyStart, end: legacyEnd },
-    };
+    return view(Page.legacy, { dongleId, legacy: { start: legacyStart, end: legacyEnd } });
   }
 
-  return { name: 'device', dongleId, routeId: null, zoom: null };
+  return view(Page.device, { dongleId });
 }
 
-// Builds the path for a view. A zoom that starts at 0 is omitted: that is the
-// URL this app already publishes for "from the beginning".
-export function pathFor(view) {
-  const { name, dongleId, routeId, zoom } = view || {};
-  if (name === 'referrals') return '/referrals';
-  if (!dongleId || name === 'home') return '/';
-  if (name === 'prime' || name === 'stream' || name === 'settings') return `/${dongleId}/${name}`;
-  if (name === 'drive' && routeId) {
+// A zoom that starts at 0 is omitted. That is the URL already published for
+// "from the beginning of the drive".
+export function pathFor({ name, dongleId, routeId, zoom } = {}) {
+  if (name === Page.referrals) return `/${Page.referrals}`;
+  if (!dongleId || name === Page.home) return '/';
+  if (SEGMENT_PAGE.has(name)) return `/${dongleId}/${name}`;
+  if (name === Page.drive && routeId) {
     if (zoom?.start) {
-      return `/${dongleId}/${routeId}/${Math.floor(zoom.start / 1000)}/${Math.floor(zoom.end / 1000)}`;
+      return `/${dongleId}/${routeId}/${Math.floor(zoom.start / SEC)}/${Math.floor(zoom.end / SEC)}`;
     }
     return `/${dongleId}/${routeId}`;
   }

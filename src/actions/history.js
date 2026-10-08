@@ -1,6 +1,6 @@
 import { LOCATION_CHANGE } from 'connected-react-router';
 
-import { parsePath } from '../url';
+import { Page, parsePath } from '../url';
 import { api } from '../api/backend';
 import * as Types from './types';
 import {
@@ -11,29 +11,27 @@ import {
   pushTimelineRange,
 } from './index';
 
-// One writer for navigation state. Clicks only push a path; every location
-// change, including the first one, ends here. Data for the same device is kept.
 function applyView(view) {
   return (dispatch, getState) => {
     const dongleChanged = Boolean(view.dongleId) && view.dongleId !== getState().dongleId;
     if (dongleChanged) dispatch(loadDevice(view.dongleId));
 
     const state = getState();
-    const prime = view.name === 'prime';
-    const stream = view.name === 'stream';
-    const settings = view.name === 'settings';
+    const prime = view.name === Page.prime;
+    const stream = view.name === Page.stream;
+    const settings = view.name === Page.settings;
     if (prime !== state.primeNav) dispatch({ type: Types.ACTION_PRIME_NAV, primeNav: prime });
     if (stream !== state.streamNav) dispatch({ type: Types.ACTION_STREAM_NAV, streamNav: stream });
     if (settings !== state.settingsNav) dispatch({ type: Types.ACTION_SETTINGS_NAV, settingsNav: settings });
 
-    if (view.name === 'drive') {
+    if (view.name === Page.drive) {
       dispatch(commitTimeline(view.routeId, view.zoom?.start ?? null, view.zoom?.end ?? null));
     } else {
       dispatch(commitTimeline(null, null, null));
     }
 
     if (!dongleChanged) return;
-    if (view.name === 'drive') dispatch(checkRoutesData());
+    if (view.name === Page.drive) dispatch(checkRoutesData());
     else dispatch(checkLastRoutesData());
   };
 }
@@ -42,12 +40,14 @@ export function applyLocation(pathname) {
   return (dispatch, getState) => {
     const view = parsePath(pathname);
 
-    if (view.name === 'legacy') {
-      const changed = view.dongleId !== getState().dongleId;
-      if (changed) dispatch(loadDevice(view.dongleId));
-      dispatch(commitTimeline(null, null, null));
-      if (changed) dispatch(checkLastRoutesData());
+    // No device in the path: keep the selected one and clear the open drive.
+    if (!view.dongleId) {
+      dispatch(applyView({ name: Page.device, dongleId: getState().dongleId }));
+      return;
+    }
 
+    if (view.name === Page.legacy) {
+      dispatch(applyView({ name: Page.device, dongleId: view.dongleId }));
       api.routes.getRoutesSegments(view.dongleId, view.legacy.start, view.legacy.end).then((routesData) => {
         if (routesData && routesData.length > 0) {
           const logId = routesData[0].fullname.split('|')[1];
@@ -57,12 +57,6 @@ export function applyLocation(pathname) {
       }).catch((err) => {
         console.error('Error fetching routes data for log ID conversion', err);
       });
-      return;
-    }
-
-    // Home and referrals keep the selected device; they are not device URLs.
-    if (view.name === 'home' || view.name === 'referrals') {
-      dispatch(applyView({ name: 'device', dongleId: getState().dongleId, routeId: null, zoom: null }));
       return;
     }
 

@@ -1,4 +1,4 @@
-import { parsePath } from './url';
+import { Page, parsePath } from './url';
 import { getDefaultFilter } from './utils/filter';
 
 export function createInitialState(pathname = window.location.pathname) {
@@ -23,9 +23,9 @@ export function createInitialState(pathname = window.location.pathname) {
     profile: null,
     devices: null,
 
-    primeNav: view.name === 'prime',
-    streamNav: view.name === 'stream',
-    settingsNav: view.name === 'settings',
+    primeNav: view.name === Page.prime,
+    streamNav: view.name === Page.stream,
+    settingsNav: view.name === Page.settings,
     subscription: null,
     subscribeInfo: null,
 
